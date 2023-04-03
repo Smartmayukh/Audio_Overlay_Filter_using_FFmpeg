@@ -259,6 +259,85 @@ The third line of the code allocates memory for the overlay buffer using the mal
 
 The code enters into a loop that reads one sample at a time from the input file, modifies it with the overlay signal if the sample position is reached, and writes the resulting sample to the output file. The loop continues until there are no more samples to read from the input file.
 
+In each iteration of the loop:
+<pre>
+    while(1) {
+        count = fread(&input_sample, 2, 1, input_file); // read one 2-byte sample from input file
+        if (count != 1) break;
+</pre>
+We start by reading one 2-byte sample from the input file using the fread() function and store it in the variable input_sample.The code reads one 2-byte sample because the audio samples are stored as 16-bit signed integers, which take up 2 bytes of memory.  The count variable is set to the number of elements successfully read by fread(), which should be 1 if a sample was successfully read. If count is not equal to 1, then the break statement is executed, which terminates the loop This is necessary because if there are no more samples to read from the input file, the program should exit the loop and stop processing audio.
+
+![image](https://user-images.githubusercontent.com/64318469/229582697-6a330332-f827-4efd-924a-c87511f2d867.png)
+
+
+The code then checks if the sample position is reached and if the overlay buffer is not exhausted. If both conditions are met, the code modifies the sample by overlaying the corresponding sample from the overlay_buffer onto the input sample with the specified gains. The code then writes the resulting sample to the output_file using the fwrite() function. If this condition is not satisfied the input sample is written to the output sample. 
+
+<pre>
+if (n >= position_samples && overlay_index < overlay_size * loop_time / sizeof(int16_t)) { // if position is reached and overlay buffer is not exhausted
+            if (silent) { // make base audio silent while overlaying
+                output_sample = (int16_t)(overlay_buffer[overlay_index] * gain_of_overlay);
+            } else { // mix the two samples together with gain applied
+                output_sample = (int16_t)(input_sample * gain_of_base + overlay_buffer[overlay_index] * gain_of_overlay) / 2;
+            }
+            overlay_index++; // increment overlay buffer index
+        } else { // use input sample only
+            output_sample = (int16_t)(input_sample);
+        }
+</pre>
+The if statement checks whether the current sample position (n) is greater than or equal to the position in samples to overlay (position_samples), and whether the overlay buffer still has data available (overlay_index < overlay_size * loop_time / sizeof(int16_t)).
+
+If both conditions are true, the audio data at the current position of the input file is mixed with the audio data from the overlay buffer, with the gain of each audio source applied (gain_of_base and gain_of_overlay, respectively).
+
+If the silent flag is set, the output sample is simply equal to the audio data from the overlay buffer multiplied by the gain_of_overlay.
+
+If the silent flag is not set, the audio data from both sources is mixed and divided by 2 to avoid clipping, and then cast to an int16_t data type and stored in the output_sample variable.
+
+The overlay_index variable is incremented to move to the next audio sample in the overlay buffer.
+
+If the conditions of the if statement are not met, the output sample is simply set to the input sample, with no modification applied.
+
+<pre>
+ fwrite(&output_sample, 2, 1, output_file);
+        n++; // increment sample counter
+</pre>
+fwrite(&output_sample, 2, 1, output_file) writes one 2-byte sample to the output file. n++ increments the current sample counter, which keeps track of how many samples have been processed.
+
+### Closing the I/O files and freeing the overlay buffer
+<pre>
+ // Close input and output files
+    fclose(input_file);
+    fclose(overlay_file);
+    fclose(output_file);
+
+
+
+
+    // Free the overlay buffer
+    free(overlay_buffer);
+</pre>
+### Finally converting the output raw file to out.wav file
+<pre>
+// Convert output file to WAV format using FFmpeg
+    ret = system("ffmpeg -y -f s16le -ar 44100 -ac 1 -i output.raw out.wav");
+    if (ret != 0) {
+        printf("Error converting output file.\n");
+        return 1;
+    }
+
+
+
+
+    return 0;
+</pre>
+Here we convert the output file from raw PCM format to the WAV format. 
+The conversion is done using the system() function, which executes the FFmpeg command specified in the argument string. The command includes various parameters, such as the output file format (s16le for 16-bit signed PCM), sample rate (44100 Hz), and number of audio channels (1 for mono).
+If the conversion is successful, the system() function will return 0, indicating that the conversion was completed without errors. If there is an error, such as if FFmpeg is not installed or if the output file cannot be created, the function will return a non-zero value. In this case, if the return value is non-zero, the code prints an error message and exits the program with a return value of 1, indicating that an error occurred during the conversion. Otherwise, the function returns 0, indicating that the conversion was successful and the output file has been created in WAV format.
+
+
+
+
+
+
 
 
 
