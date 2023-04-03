@@ -88,7 +88,7 @@ In summary, this algorithm functions by comparing the correlation coefficient be
 
 ![image](https://user-images.githubusercontent.com/64318469/229578950-1570cf94-e791-40ad-b87d-f85f3461c536.png)
 
-# C implementation using FFMPEG 
+# C implementation using FFmpeg
 
 Let us step by step understand the C code that I have written
 
