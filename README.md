@@ -2,6 +2,8 @@
 
 Copyright (c) 2023 Mayukhmali Das
 
+This repository is an attempt to develop an efficient Audio Overlay Filter using the FFmpeg library and system function in C, which will enable users to mix samples in a stream with other samples at any point in the stream as specified by the user. The filter will provide users with several options, including Position, Loop_Time, Gain_of_Base, and Gain_of_Overlay. It will also include auxiliary features such as fade in, fade out, crossfade, time stretch, and best sync point. 
+
 ## User Options
 
 I plan to introduce the following options for the users
