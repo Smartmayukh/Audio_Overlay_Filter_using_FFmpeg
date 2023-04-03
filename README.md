@@ -88,6 +88,179 @@ In summary, this algorithm functions by comparing the correlation coefficient be
 
 ![image](https://user-images.githubusercontent.com/64318469/229578950-1570cf94-e791-40ad-b87d-f85f3461c536.png)
 
+# C implementation using FFMPEG 
+
+Let us step by step understand the C code that I have written
+
+### Including all necessary libraries : 
+
+
+#include <stdio.h></br>
+#include <stdint.h></br>
+#include <math.h></br>
+#include <stdlib.h>
+
+### Convert input files to raw format using FFmpeg and system function :
+
+<pre>
+
+ int main() {
+    // Convert input files to raw format using FFmpeg
+    int ret = system("ffmpeg -y -i base_audio.wav -f s16le -ac 1 input.raw");
+    if (ret != 0) {
+        printf("Error converting input file.\n");
+        return 1;
+    }
+    ret = system("ffmpeg -y -i overlay_audio.wav -f s16le -ac 1 overlay.raw");
+    if (ret != 0) {
+        printf("Error converting overlay file.\n");
+        return 1;
+    }
+</pre>
+
+The system() function is a standard library function in C that allows us to execute a command as if it were entered on the command line. In case of the base audio, the command being executed is "ffmpeg -y -i base_audio.wav -f s16le -ac 1 input.raw". This command tells FFmpeg to read in the file "base_audio.wav", and then convert it to a raw audio file format with a 16-bit signed little-endian encoding and a single audio channel. Same is with the overlay audio. 
+
+### Opening the Input and Output raw files created in the previous step :
+
+<pre>
+    // Open input and output files
+    FILE *input_file = fopen("input.raw", "rb");
+    if (!input_file) {
+        printf("Error opening input file.\n");
+        return 1;
+    }
+    FILE *overlay_file = fopen("overlay.raw", "rb");
+    if (!overlay_file) {
+        printf("Error opening overlay file.\n");
+        return 1;
+    }
+    FILE *output_file = fopen("output.raw", "wb");
+    if (!output_file) {
+        printf("Error opening output file.\n");
+        return 1;
+    }
+</pre>
+
+Additionally an output.raw file is also created and opened in “write binary” mode to write down the modified output. 
+
+### Setting all the parameters for overlaying :
+
+<pre>
+    // Set position and loop time
+
+
+    int position = 5130; // position in milliseconds
+    int loop_time = 5; // number of times to loop the overlay
+
+    // Set gain values
+    double gain_of_base = 0.2; // gain of base audio
+    double gain_of_overlay = 0.6; // gain of overlay audio
+
+    // Set silent flag
+    int silent = 0; // make base audio silent while overlaying
+
+</pre>
+
+
+
+Position : This will be a number in  milliseconds where the user wants to insert the overlay file. Here it is 5130 milliseconds.</br>
+
+Loop_Time :  Number of times the overlay will be used. Here it is looped five times. </br>
+
+Gain_of_Base : Gain of the base audio. Set to 0.2 to lower its volume.</br>
+
+Gain_of_Overlay: Gain of the overlay audio. Set to 0.6.</br>
+
+Silent : Make base audio silent while overlaying. Set to 0 to show that mixing is actually happening between the base and the overlay audio files.
+
+
+
+### Converting the time position to position in samples for overlaying :
+
+<pre>
+    // Calculate position in samples
+    int sample_rate = 44100; // assume sample rate of 44100 Hz
+    int position_samples = (int)(position / 1000.0 * sample_rate);
+</pre>
+
+To convert this time position to a position in samples, we multiply the time position by the sample rate and divide by 1000.
+
+
+
+### Creation of buffer using malloc to store the net overlay audio after looping :
+
+
+<pre>
+    // Create a buffer for the net overlay audio
+    fseek(overlay_file, 0, SEEK_END);
+    long overlay_size = ftell(overlay_file);
+    fseek(overlay_file, 0, SEEK_SET);
+    int16_t *overlay_buffer = malloc(overlay_size * loop_time);
+</pre>
+
+
+
+The first line of the code uses the fseek() function to move the file position indicator to the end of the overlay_file. This is done so that we can determine the size of the file by calling the ftell() function, which returns the current position of the file pointer.
+
+The second line of the code sets the file position indicator back to the beginning of the file using the fseek() function with the SEEK_SET argument, so that the file can be read from the beginning.
+
+The third line of the code allocates memory for the overlay buffer using the malloc() function, which dynamically allocates a block of memory of size overlay_size * loop_time bytes. The int16_t type is used to ensure that the buffer contains 16-bit signed integers, which is the most common format for audio data.
+
+### Overlay Samples are then concatenated to fill the buffer :
+
+<pre>
+    // Fill the buffer with concatenated overlay samples
+    for (int i = 0; i < loop_time; i++) {
+        fread(overlay_buffer + i * (overlay_size / sizeof(int16_t)), sizeof(int16_t), overlay_size / sizeof(int16_t), overlay_file);
+        fseek(overlay_file, 0, SEEK_SET);
+    }
+</pre>
+
+### Mixing of the base and overlay audio files :
+
+<pre>
+    int16_t input_sample, output_sample;
+    int count;
+    int n = 0; // sample counter
+    int overlay_index = 0; // index for overlay buffer
+
+
+
+
+    while(1) {
+        count = fread(&input_sample, 2, 1, input_file); // read one 2-byte sample from input file
+        if (count != 1) break;
+
+
+
+
+        if (n >= position_samples && overlay_index < overlay_size * loop_time / sizeof(int16_t)) { // if position is reached and overlay buffer is not exhausted
+            if (silent) { // make base audio silent while overlaying
+                output_sample = (int16_t)(overlay_buffer[overlay_index] * gain_of_overlay);
+            } else { // mix the two samples together with gain applied
+                output_sample = (int16_t)(input_sample * gain_of_base + overlay_buffer[overlay_index] * gain_of_overlay) / 2;
+            }
+            overlay_index++; // increment overlay buffer index
+        } else { // use input sample only
+            output_sample = (int16_t)(input_sample);
+        }
+
+
+
+
+        fwrite(&output_sample, 2, 1, output_file);
+        n++; // increment sample counter
+    }
+
+</pre>
+
+
+
+
+The code enters into a loop that reads one sample at a time from the input file, modifies it with the overlay signal if the sample position is reached, and writes the resulting sample to the output file. The loop continues until there are no more samples to read from the input file.
+
+
+
 
 
 
