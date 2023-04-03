@@ -1,5 +1,7 @@
 # Audio_Overlay_Filter_using_FFmpeg
 
+Copyright (c) 2023 Mayukhmali Das
+
 ## User Options
 
 I plan to introduce the following options for the users
